@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator Pori Adsorpsi - Kimia Fisika</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f1f5f9; }
+        canvas#adsorptionCanvas {
+            background: #ffffff;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+        }
+        .control-card {
+            background: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        input[type="range"] {
+            accent-color: #2563eb;
+        }
+        /* Styling untuk variabel miring */
+        .var-italic { font-style: italic; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl font-bold text-slate-800">Simulator Adsorpsi Intra-Pori</h1>
+            <p class="text-slate-600">Mata Kuliah Kimia Fisika 1: Pengaruh Luas Permukaan & Temperatur</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Sidebar Kontrol -->
+            <div class="lg:col-span-1 space-y-4">
+                <div class="control-card p-5 rounded-xl border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span>⚙️</span> Parameter
+                    </h2>
+                    
+                    <div class="mb-5">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Luas Permukaan (<span class="var-italic">A</span>)</label>
+                        <select id="surfaceArea" class="w-full p-2 border rounded-lg bg-slate-50">
+                            <option value="low">Rendah (Pori Sedikit)</option>
+                            <option value="medium" selected>Sedang (Pori Normal)</option>
+                            <option value="high">Tinggi (Pori Kompleks/Karbon Aktif)</option>
+                        </select>
+                        <p class="text-[10px] text-slate-500 mt-1 italic">*Mempengaruhi jumlah situs aktif tersedia.</p>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Temperatur (<span class="var-italic">T</span>): <span id="tLabel">300</span> K</label>
+                        <input type="range" id="tempSlider" min="200" max="600" step="10" value="300" class="w-full h-2 bg-slate-200 rounded-lg">
+                        <p class="text-[10px] text-slate-500 mt-1">*Suhu tinggi meningkatkan energi kinetik (getaran).</p>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Konsentrasi (<span class="var-italic">C</span>): <span id="cLabel">40</span></label>
+                        <input type="range" id="concSlider" min="10" max="100" value="40" class="w-full h-2 bg-slate-200 rounded-lg">
+                    </div>
+
+                    <div class="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 italic">
+                        <strong>Info Termodinamika:</strong> Adsorpsi adalah proses eksoterm ($\Delta H < 0$). Menurut Azas Le Chatelier, kenaikan suhu (<span class="var-italic">T</span>) akan menggeser kesetimbangan ke arah desorpsi (pelepasan adsorbat).
+                    </div>
+                </div>
+
+                <!-- Keterangan Mekanisme -->
+                <div class="control-card p-5 rounded-xl border border-slate-200 bg-white">
+                    <h2 class="text-sm font-bold text-slate-800 mb-3 border-b pb-1 uppercase tracking-tight">Legend & Status</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-4 h-4 rounded-full bg-blue-500"></div>
+                            <span class="text-xs font-medium text-slate-700">Adsorbat Bebas</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-4 h-4 rounded-full bg-red-500"></div>
+                            <span class="text-xs font-medium text-slate-700">Adsorbat Terikat (Teradsorpsi)</span>
+                        </div>
+                        <div class="pt-2">
+                            <p class="text-[10px] leading-tight text-slate-500">
+                                <strong>Mekanisme:</strong><br>
+                                1. Adsorbat bergerak acak (Difusi).<br>
+                                2. Penetrasi ke dalam pori adsorben.<br>
+                                3. Interaksi dengan situs aktif (Adsorpsi).<br>
+                                4. Pelepasan akibat energi termal (Desorpsi).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Display -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Visualisasi -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 text-center">Visualisasi Penetrasi Pori</h3>
+                    <canvas id="adsorptionCanvas" width="800" height="300" class="w-full h-auto"></canvas>
+                </div>
+
+                <!-- Grafik Statis -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <canvas id="isothermChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-blue-900 text-white p-5 rounded-xl shadow-lg">
+                <h4 class="font-bold mb-2 flex items-center gap-2">
+                    <span>🔬</span> Mekanisme Intra-Pori & Luas Permukaan (<span class="var-italic">A</span>)
+                </h4>
+                <p class="text-sm leading-relaxed opacity-90">
+                    Adsorpsi pada zat padat berpori (seperti karbon aktif) tidak hanya terjadi di permukaan luar, tetapi sebagian besar terjadi di dalam saluran mikro (pori). Semakin besar luas permukaan (<span class="var-italic">A</span>), semakin banyak <strong>situs aktif</strong> yang tersedia secara geometris untuk menangkap molekul adsorbat. Dalam simulator, struktur pori yang lebih banyak mensimulasikan material dengan porositas tinggi.
+                </p>
+            </div>
+            <div class="bg-slate-800 text-white p-5 rounded-xl shadow-lg">
+                <h4 class="font-bold mb-2 text-red-400 flex items-center gap-2">
+                    <span>🌡️</span> Pengaruh Temperatur (<span class="var-italic">T</span>)
+                </h4>
+                <p class="text-sm leading-relaxed opacity-90">
+                    Proses ini dikendalikan oleh energi kinetik. Pada <span class="var-italic">T</span> rendah, gaya tarik (Van der Waals) lebih dominan dibandingkan getaran termal molekul. Seiring naiknya <span class="var-italic">T</span>, molekul yang teradsorpsi memperoleh energi kinetik yang cukup untuk mengatasi gaya tarik permukaan, memicu fenomena <strong>Desorpsi</strong>. Itulah sebabnya pada grafik, nilai <span class="var-italic">q</span> menurun saat <span class="var-italic">T</span> dinaikkan.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('adsorptionCanvas');
+        const ctx = canvas.getContext('2d');
+        const tempSlider = document.getElementById('tempSlider');
+        const concSlider = document.getElementById('concSlider');
+        const surfaceSelect = document.getElementById('surfaceArea');
+        const tLabel = document.getElementById('tLabel');
+        const cLabel = document.getElementById('cLabel');
+
+        let particles = [];
+        let chart;
+        let pores = [];
+
+        function initChart() {
+            const chartCtx = document.getElementById('isothermChart').getContext('2d');
+            chart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 11}, (_, i) => i * 10),
+                    datasets: [{
+                        label: 'Kapasitas Adsorpsi (q)',
+                        data: [],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    plugins: { 
+                        legend: { display: true },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'q = ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Konsentrasi (C)' } },
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100,
+                            title: { display: true, text: 'Kapasitas Adsorpsi (q)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        class Adsorbat {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.isAdsorbed = false;
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * (canvas.height * 0.4);
+                this.updateSpeed();
+            }
+            updateSpeed() {
+                const T = parseInt(tempSlider.value);
+                const speedScale = T / 200; 
+                this.vx = (Math.random() - 0.5) * 4 * speedScale;
+                this.vy = (Math.random() - 0.5) * 4 * speedScale;
+            }
+            update() {
+                if (!this.isAdsorbed) {
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                    if (this.y < 0) this.vy *= -1;
+
+                    const T = parseInt(tempSlider.value);
+                    const stickProbability = 1 - (T - 200) / 600;
+
+                    pores.forEach(pore => {
+                        if (this.x > pore.x && this.x < pore.x + pore.w && this.y > pore.y) {
+                            if (Math.random() < stickProbability * 0.1) {
+                                this.isAdsorbed = true;
+                                this.vx = 0;
+                                this.vy = 0;
+                            } else {
+                                this.vy *= -1; 
+                            }
+                        }
+                    });
+                    
+                    if (this.y > canvas.height - 20) {
+                        this.vy *= -1;
+                        this.y = canvas.height - 20;
+                    }
+                } else {
+                    const T = parseInt(tempSlider.value);
+                    if (Math.random() < (T / 100000)) {
+                        this.isAdsorbed = false;
+                        this.updateSpeed();
+                    }
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = this.isAdsorbed ? '#ef4444' : '#3b82f6';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function generatePores() {
+            const area = surfaceSelect.value;
+            pores = [];
+            const surfaceY = 150;
+            const poreHeight = 130;
+            
+            let count = 3;
+            if (area === 'medium') count = 6;
+            if (area === 'high') count = 12;
+
+            const spacing = canvas.width / (count + 1);
+            for (let i = 1; i <= count; i++) {
+                pores.push({
+                    x: i * spacing - (spacing/4),
+                    y: surfaceY,
+                    w: spacing / 2,
+                    h: poreHeight
+                });
+            }
+        }
+
+        function updateData() {
+            const T = parseInt(tempSlider.value);
+            const C = parseInt(concSlider.value);
+            const area = surfaceSelect.value;
+            
+            tLabel.textContent = T;
+            cLabel.textContent = C;
+
+            let areaMultiplier = area === 'low' ? 0.5 : (area === 'medium' ? 1 : 2);
+            const chartData = [];
+            for (let i = 0; i <= 100; i += 10) {
+                let q = (areaMultiplier * 150 * i) / ( (T/100) + i );
+                chartData.push(q);
+            }
+            chart.data.datasets[0].data = chartData;
+            chart.update();
+
+            const targetCount = C;
+            if (particles.length < targetCount) {
+                for(let i=particles.length; i<targetCount; i++) particles.push(new Adsorbat());
+            } else if (particles.length > targetCount) {
+                particles = particles.slice(0, targetCount);
+            }
+            
+            particles.forEach(p => p.updateSpeed());
+        }
+
+        function drawEnvironment() {
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(0, 150, canvas.width, 150);
+            ctx.fillStyle = '#ffffff';
+            pores.forEach(pore => {
+                ctx.fillRect(pore.x, pore.y, pore.w, pore.h);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.strokeRect(pore.x, pore.y, pore.w, pore.h);
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawEnvironment();
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        tempSlider.addEventListener('input', updateData);
+        concSlider.addEventListener('input', updateData);
+        surfaceSelect.addEventListener('change', () => {
+            generatePores();
+            updateData();
+        });
+
+        window.onload = () => {
+            initChart();
+            generatePores();
+            updateData();
+            animate();
+        };
+    </script>
+</body>
+</html>
