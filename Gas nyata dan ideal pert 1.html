@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator Kimia Fisika - Rahmat Zikri, S.Si., M.Si</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #f0f4f8; }
+        canvas { background: #1a202c; border-radius: 8px; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .slider { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 5px; background: #d1d5db; outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; }
+        .math-box { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="bg-blue-900 text-white p-6 rounded-xl shadow-lg mb-8">
+            <h1 class="text-3xl font-bold">Simulator Interaktif Kimia Fisika 1</h1>
+            <p class="text-blue-200 mt-2">Dosen Pengampu: Rahmat Zikri, S.Si., M.Si</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Sidebar Controls -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="mr-2">⚙️</span> Variabel Sistem
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Temperatur (T): <span id="t-val" class="text-blue-600 font-bold">300</span> K</label>
+                            <input type="range" id="t-slider" min="100" max="1000" value="300" class="slider">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Volume (V): <span id="v-val" class="text-blue-600 font-bold">20</span> L</label>
+                            <input type="range" id="v-slider" min="10" max="50" value="20" class="slider">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Mol (n): <span id="n-val" class="text-blue-600 font-bold">1</span> mol</label>
+                            <input type="range" id="n-slider" min="0.1" max="5" step="0.1" value="1" class="slider">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
+                    <h2 class="text-xl font-semibold mb-4">Parameter Gas Nyata</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-gray-400">Koefisien a</label>
+                            <input type="number" id="a-param" value="1.36" step="0.1" class="w-full border rounded p-1 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-gray-400">Koefisien b</label>
+                            <input type="number" id="b-param" value="0.0318" step="0.01" class="w-full border rounded p-1 text-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Display -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Visualizer -->
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <h3 class="text-lg font-semibold mb-2 text-center">Visualisasi Partikel (Model Bola Biliar)</h3>
+                    <canvas id="particleCanvas" width="600" height="300" class="w-full"></canvas>
+                </div>
+
+                <!-- Calculation Details -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Ideal Column -->
+                    <div class="bg-white p-5 rounded-xl shadow-md border-b-4 border-blue-400">
+                        <h4 class="text-blue-800 font-bold text-sm uppercase mb-3 text-center">Analisis Gas Ideal</h4>
+                        <div class="math-box mb-3 text-center">
+                            P = (nRT) / V
+                        </div>
+                        <div class="text-xs text-gray-600 mb-4" id="calc-ideal-detail">
+                            P = (1 * 0.08206 * 300) / 20
+                        </div>
+                        <div class="text-3xl font-bold text-blue-900 mono text-center"><span id="p-ideal">1.231</span> atm</div>
+                    </div>
+                    <!-- Vander Column -->
+                    <div class="bg-white p-5 rounded-xl shadow-md border-b-4 border-purple-400">
+                        <h4 class="text-purple-800 font-bold text-sm uppercase mb-3 text-center">Analisis Van der Waals</h4>
+                        <div class="math-box mb-3 text-center">
+                            P = [nRT / (V-nb)] - [an²/V²]
+                        </div>
+                        <div class="text-xs text-gray-600 mb-4" id="calc-vander-detail">
+                            P = ... perhitungan ...
+                        </div>
+                        <div class="text-3xl font-bold text-purple-900 mono text-center"><span id="p-vander">1.228</span> atm</div>
+                    </div>
+                </div>
+
+                <div id="insight-box" class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400 text-sm text-yellow-800 italic">
+                    <strong>Wawasan:</strong> <span id="insight-text">Memuat data...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Kerja Mekanik -->
+        <section class="mt-12 bg-white p-8 rounded-xl shadow-lg border-t-8 border-red-500">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2 text-center md:text-left">Konsep Kerja Mekanik (w = -P × ΔT)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-600 italic">"Simulasi hubungan kerja terhadap perubahan temperatur sesuai permintaan parameter khusus."</p>
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <p class="text-sm font-bold text-blue-800 mb-2">Persamaan yang ditampilkan:</p>
+                        <div class="math-box text-center text-lg font-bold">
+                            w = -P × ΔT
+                        </div>
+                    </div>
+                    
+                    <button id="animate-piston" class="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold transition shadow-md flex items-center justify-center">
+                        <span class="mr-2">▶</span> JALANKAN SIMULASI KERJA
+                    </button>
+                    
+                    <div class="p-4 bg-gray-900 text-white rounded-lg shadow-inner">
+                        <div class="flex justify-between font-mono text-sm mb-1">
+                            <span class="text-gray-400 text-xs">Nilai Kerja Terhitung (w):</span>
+                            <span id="work-done" class="text-yellow-400 font-bold">0 J</span>
+                        </div>
+                        <div class="text-[10px] text-gray-500" id="work-calc-text">w = -(P) × (T₂ - T₁)</div>
+                    </div>
+                </div>
+                
+                <div class="relative h-56 bg-gray-200 rounded-lg overflow-hidden border-4 border-gray-400 shadow-2xl">
+                    <div id="piston-head" class="absolute top-0 left-0 h-full bg-gradient-to-r from-red-400 to-red-600 opacity-50 transition-all duration-1000 ease-in-out" style="width: 40%"></div>
+                    <div class="absolute top-0 bottom-0 left-[40%] w-5 bg-gray-800 z-10 shadow-2xl transition-all duration-1000 ease-in-out" id="piston-line"></div>
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span class="text-gray-500 font-black text-2xl uppercase tracking-[0.5em] opacity-10">SISTEM TERMAL</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        if (typeof R_GAS_VAL === 'undefined') {
+            var R_GAS_VAL = 0.08206; 
+        }
+
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const tSlider = document.getElementById('t-slider');
+        const vSlider = document.getElementById('v-slider');
+        const nSlider = document.getElementById('n-slider');
+        const aInput = document.getElementById('a-param');
+        const bInput = document.getElementById('b-param');
+
+        let particles = [];
+        
+        function initParticles() {
+            particles = [];
+            const n = parseFloat(nSlider.value);
+            const count = Math.min(Math.floor(n * 25), 120);
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2
+                });
+            }
+        }
+
+        function updateSimulation() {
+            const T = parseFloat(tSlider.value);
+            const V = parseFloat(vSlider.value);
+            const n = parseFloat(nSlider.value);
+            const a = parseFloat(aInput.value);
+            const b = parseFloat(bInput.value);
+
+            document.getElementById('t-val').innerText = T;
+            document.getElementById('v-val').innerText = V;
+            document.getElementById('n-val').innerText = n;
+
+            const pIdeal = (n * R_GAS_VAL * T) / V;
+            document.getElementById('p-ideal').innerText = pIdeal.toFixed(3);
+            document.getElementById('calc-ideal-detail').innerHTML = 
+                `P = (${n} × ${R_GAS_VAL} × ${T}) / ${V}`;
+
+            const vNb = V - (n * b);
+            const an2v2 = (a * n * n) / (V * V);
+            let pVander = 0;
+            if (vNb > 0) {
+                pVander = ((n * R_GAS_VAL * T) / vNb) - an2v2;
+            }
+            document.getElementById('p-vander').innerText = Math.max(0, pVander).toFixed(3);
+            document.getElementById('calc-vander-detail').innerHTML = 
+                `P = [(${n}×${R_GAS_VAL}×${T}) / (${V}-(${n}×${b}))] - [(${a}×${n}²)/${V}²]`;
+
+            const z = pVander / pIdeal;
+            const insightText = document.getElementById('insight-text');
+            if (Math.abs(1 - z) < 0.02) {
+                insightText.innerText = "Gas berperilaku Ideal (Z ≈ 1).";
+            } else if (z < 1) {
+                insightText.innerText = "Z < 1: Gaya tarik antar molekul (a) mendominasi.";
+            } else {
+                insightText.innerText = "Z > 1: Volume molekul (b) mendominasi.";
+            }
+
+            draw(T, b);
+            requestAnimationFrame(updateSimulation);
+        }
+
+        function draw(T, b) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const speed = Math.sqrt(T / 150);
+            const size = 2 + (b * 15);
+
+            particles.forEach(p => {
+                p.x += p.vx * speed;
+                p.y += p.vy * speed;
+
+                if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${200 + T/10}, 80%, 50%)`;
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        document.getElementById('animate-piston').addEventListener('click', () => {
+            const piston = document.getElementById('piston-head');
+            const line = document.getElementById('piston-line');
+            const workDisplay = document.getElementById('work-done');
+            const calcText = document.getElementById('work-calc-text');
+            
+            piston.style.width = "85%";
+            line.style.left = "85%";
+            
+            const T1 = parseFloat(tSlider.value);
+            const T2 = T1 + 100; // Asumsi simulasi kenaikan suhu 100K
+            const n = parseFloat(nSlider.value);
+            const V = parseFloat(vSlider.value);
+            const P = (n * R_GAS_VAL * T1) / V;
+            
+            // Rumus sesuai permintaan: w = -P * delta T
+            const deltaT = T2 - T1;
+            const work = -1 * P * deltaT;
+            
+            workDisplay.innerText = work.toFixed(2) + " unit";
+            calcText.innerText = `w = -(${P.toFixed(3)}) × (${T2} - ${T1})`;
+
+            setTimeout(() => {
+                piston.style.width = "40%";
+                line.style.left = "40%";
+            }, 3000);
+        });
+
+        nSlider.addEventListener('input', initParticles);
+        window.addEventListener('load', () => {
+            initParticles();
+            updateSimulation();
+        });
+    </script>
+</body>
+</html>
