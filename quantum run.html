@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Sprint: AI Night Stadium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* 3D Environment */
+        .world {
+            perspective: 1200px;
+            width: 100%;
+            height: 550px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #020617 0%, #1e1b4b 30%, #14532d 30%, #064e3b 45%, #0f172a 45%);
+        }
+
+        /* Stadium Lights */
+        .floodlight {
+            position: absolute;
+            top: 20px;
+            width: 80px;
+            height: 120px;
+            background: #334155;
+            z-index: 20;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            padding: 5px;
+            border-radius: 4px;
+            box-shadow: 0 0 50px rgba(255,255,255,0.2);
+        }
+        .light-bulb {
+            background: #fff;
+            border-radius: 2px;
+            box-shadow: 0 0 15px #fff, 0 0 30px #60a5fa;
+            animation: flicker 4s infinite;
+        }
+        .floodlight-left { left: 10%; transform: rotateY(30deg); }
+        .floodlight-right { right: 10%; transform: rotateY(-30deg); }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            95% { opacity: 1; }
+            96% { opacity: 0.8; }
+            97% { opacity: 1; }
+        }
+
+        /* Crowded Stands */
+        .stands {
+            position: absolute;
+            top: 40px;
+            width: 180%;
+            height: 300px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 5;
+            left: -40%;
+        }
+
+        .stand-side {
+            width: 42%;
+            height: 100%;
+            background: #1e293b;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 10px solid #475569;
+        }
+
+        .audience-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle, #ef4444 1px, transparent 1px), 
+                              radial-gradient(circle, #3b82f6 1px, transparent 1px),
+                              radial-gradient(circle, #ffffff 1px, transparent 1px);
+            background-size: 12px 12px, 15px 15px, 20px 20px;
+            background-position: 0 0, 5px 5px, 10px 10px;
+            opacity: 0.8;
+            animation: audience-wave 2s infinite ease-in-out;
+        }
+
+        @keyframes audience-wave {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .left-stand { transform: skewY(-22deg); border-right: 20px solid #0f172a; }
+        .right-stand { transform: skewY(22deg); border-left: 20px solid #0f172a; }
+
+        .ground {
+            position: absolute;
+            width: 800%;
+            height: 20000px;
+            bottom: -5000px;
+            left: -350%;
+            background-color: #7f1d1d; 
+            background-image: 
+                linear-gradient(90deg, 
+                    transparent 48.5%, rgba(255,255,255,0.7) 48.5%, rgba(255,255,255,0.7) 48.7%, transparent 48.7%,
+                    transparent 51.3%, rgba(255,255,255,0.7) 51.3%, rgba(255,255,255,0.7) 51.5%, transparent 51.5%
+                );
+            transform: rotateX(80deg);
+            transform-origin: top center;
+            will-change: transform;
+            box-shadow: inset 0 200px 100px rgba(0,0,0,0.5);
+        }
+
+        .ground-moving { animation: move-ground 1.2s linear infinite; }
+        @keyframes move-ground {
+            from { transform: rotateX(80deg) translateY(0); }
+            to { transform: rotateX(80deg) translateY(1000px); }
+        }
+
+        .player-head {
+            position: absolute;
+            bottom: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 480px;
+            height: 220px;
+            background: linear-gradient(to top, #020617, #1e293b);
+            border-radius: 240px 240px 0 0;
+            border: 14px solid #334155;
+            z-index: 100;
+        }
+
+        .hands-container {
+            position: absolute;
+            bottom: -40px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 6%;
+            z-index: 110;
+        }
+        
+        .hand { width: 160px; height: 280px; background: #0f172a; border-radius: 80px; border: 12px solid #334155; }
+        .running .hand-l { animation: swing-l 0.6s infinite alternate ease-in-out; }
+        .running .hand-r { animation: swing-r 0.6s infinite alternate ease-in-out; }
+
+        @keyframes swing-l { from { transform: rotate(10deg) translateY(0); } to { transform: rotate(5deg) translateY(80px); } }
+        @keyframes swing-r { from { transform: rotate(-5deg) translateY(80px); } to { transform: rotate(-10deg) translateY(0); } }
+
+        .bobbing { animation: head-bob 0.6s infinite ease-in-out; }
+        @keyframes head-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+
+        .portal {
+            position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%) scale(0);
+            width: 300px; height: 300px; background: radial-gradient(circle, #fff 10%, #22d3ee 40%, #8b5cf6 70%, transparent 90%);
+            border-radius: 50%; box-shadow: 0 0 100px #22d3ee, 0 0 200px #8b5cf6; z-index: 400; display: none;
+        }
+        .portal-active { display: block !important; animation: portal-grow 1s forwards; }
+        @keyframes portal-grow { from { transform: translate(-50%, -50%) scale(0); opacity: 0; } to { transform: translate(-50%, -50%) scale(1.5); opacity: 1; } }
+
+        .ai-bubble {
+            background: #1e293b;
+            border-left: 4px solid #ef4444;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-top: 1rem;
+            text-align: left;
+            animation: fadeIn 0.5s ease;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- HUD -->
+    <div class="w-full max-w-4xl mb-4 flex justify-between items-center px-4">
+        <div>
+            <h1 class="text-3xl font-black text-white italic uppercase tracking-tighter">
+                <span class="text-red-600">QUANTUM</span> SPRINT
+            </h1>
+            <div id="stageDots" class="flex gap-2 mt-1"></div>
+        </div>
+        <div class="bg-slate-900 border-b-4 border-red-600 px-8 py-3 rounded-2xl shadow-xl">
+            <span id="stopwatch" class="text-4xl font-mono text-yellow-400 font-bold tracking-tight">00:00.00</span>
+        </div>
+    </div>
+
+    <!-- Main Viewport -->
+    <div class="w-full max-w-4xl aspect-video bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl border-[12px] border-slate-900 relative">
+        
+        <div class="world" id="gameWorld">
+            <div class="floodlight floodlight-left">
+                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+            </div>
+            <div class="floodlight floodlight-right">
+                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+            </div>
+
+            <div id="dimensionBg" class="absolute inset-0 bg-black z-[350] hidden"></div>
+            <div id="portalWarning" class="absolute top-1/4 left-1/2 -translate-x-1/2 z-50 hidden">
+                <div class="bg-red-600 text-white px-8 py-4 rounded-2xl font-black text-xl border-4 border-white shadow-2xl animate-pulse">
+                    ⚠️ DIMENSION RIFT AHEAD ⚠️
+                </div>
+            </div>
+
+            <div id="portal" class="portal"></div>
+            <div class="stands">
+                <div class="stand-side left-stand"><div class="audience-layer"></div></div>
+                <div class="stand-side right-stand"><div class="audience-layer"></div></div>
+            </div>
+            <div class="ground" id="ground"></div>
+            
+            <div id="camera" class="w-full h-full relative">
+                <div id="entityContainer" class="w-full h-full"></div>
+            </div>
+
+            <div class="player-head"></div>
+            <div class="hands-container" id="hands">
+                <div class="hand hand-l"></div>
+                <div class="hand hand-r"></div>
+            </div>
+
+            <div id="penaltyOverlay" class="absolute inset-0 bg-black/95 z-[600] hidden flex-col items-center justify-center text-center p-8">
+                <div class="bg-slate-900 border-4 border-red-600 p-8 rounded-[3rem] shadow-2xl max-w-lg">
+                    <h3 class="text-red-500 font-black text-4xl mb-2">ERROR DIMENSI!</h3>
+                    <div id="penaltyTimer" class="text-7xl font-mono text-white font-black mb-4">30</div>
+                    <div id="aiExplanation" class="text-slate-400 italic text-sm mb-6 h-24 overflow-y-auto">Tunggu sinkronisasi...</div>
+                    <button id="askAiBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm uppercase transition-all">✨ Tanya Gemini Kenapa Salah?</button>
+                </div>
+            </div>
+
+            <div id="flashOverlay" class="absolute inset-0 pointer-events-none z-[600] transition-opacity duration-300 opacity-0"></div>
+        </div>
+
+        <div class="absolute bottom-0 left-0 w-full h-4 bg-slate-950 z-50">
+            <div id="progressBar" class="h-full bg-red-600 transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <!-- Menus -->
+        <div id="menu" class="absolute inset-0 bg-slate-950/98 z-[700] flex flex-col items-center justify-center p-12 text-center">
+            <h2 class="text-7xl font-black text-white mb-6 italic uppercase tracking-tighter leading-tight">STADIUM<br><span class="text-red-600">NIGHT RUN</span></h2>
+            <input type="text" id="playerName" class="w-96 bg-slate-900 border-4 border-slate-800 text-white p-6 rounded-3xl mb-8 text-center text-2xl font-bold focus:border-red-600 outline-none" placeholder="NAMA / NIM">
+            <button id="startBtn" class="bg-red-600 hover:bg-red-500 text-white px-24 py-7 rounded-3xl font-black text-4xl shadow-2xl uppercase transition-transform active:scale-95">MULAI BALAPAN</button>
+        </div>
+
+        <div id="quizPanel" class="hidden absolute inset-0 z-[500] flex items-center justify-center p-6">
+            <div class="bg-slate-950/95 backdrop-blur-xl p-8 rounded-[4rem] border-4 border-cyan-500/40 shadow-2xl w-full max-w-3xl text-center">
+                <p id="qNumber" class="text-cyan-400 font-black text-sm tracking-[0.5em] mb-4 uppercase">SOAL FISIKA KUANTUM</p>
+                <p id="qText" class="text-xl md:text-2xl font-bold mb-8 text-white leading-relaxed"></p>
+                <div id="options" class="grid grid-cols-1 gap-3"></div>
+            </div>
+        </div>
+
+        <!-- REPAIRED RESULT CARD -->
+        <div id="resultCard" class="hidden absolute inset-0 bg-slate-950 z-[800] flex items-center justify-center p-6">
+            <div class="w-full max-w-2xl bg-slate-900 p-10 rounded-[4rem] border-4 border-slate-800 flex flex-col items-center shadow-2xl overflow-y-auto max-h-full">
+                <h2 class="text-5xl font-black text-white mb-2 italic uppercase tracking-tighter">REKOR <span class="text-red-600">FINISH</span></h2>
+                
+                <p id="finalTime" class="text-7xl font-mono text-yellow-400 font-bold my-4">00:00.00</p>
+                <p id="winnerName" class="text-white text-2xl font-black uppercase tracking-widest mb-4"></p>
+                
+                <div id="aiFeedback" class="ai-bubble w-full mb-8">
+                    ✨ Menganalisis performa lari Anda dengan Gemini AI...
+                </div>
+
+                <div class="flex flex-col w-full gap-4">
+                    <button id="submitBtn" class="w-full bg-green-600 text-white py-5 rounded-3xl font-black text-xl hover:bg-green-500 transition-all uppercase shadow-lg border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
+                        🚀 Submit ke Google Form
+                    </button>
+                    <button id="restartBtn" class="w-full bg-slate-800 text-white py-4 rounded-3xl font-black text-lg hover:bg-white hover:text-black transition-all uppercase">
+                        Main Lagi
+                    </button>
+                </div>
+                <p class="text-slate-500 text-[10px] mt-6 uppercase font-bold tracking-widest italic opacity-50">Data Nama & Waktu akan terisi otomatis di Form</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = ""; 
+        const BANK_SOAL = [
+            { id: 1, q: "Menurut fisika klasik, radiasi benda hitam di frekuensi tinggi harusnya tak terhingga. Ini disebut...", o: ["Paradoks Fermi", "Bencana Ultraviolet", "Teori Dawai", "Efek Doppler"], a: 1 },
+            { id: 2, q: "Siapa yang memperkenalkan konsep kuantisasi energi untuk pertama kali?", o: ["Albert Einstein", "Isaac Newton", "Max Planck", "Werner Heisenberg"], a: 2 },
+            { id: 3, q: "Partikel cahaya disebut sebagai...", o: ["Proton", "Foton", "Elektron", "Neutron"], a: 1 },
+            { id: 4, q: "Einstein menjelaskan efek fotoelektrik dengan menganggap cahaya sebagai...", o: ["Gelombang kontinu", "Medan magnet", "Partikel (foton)", "Getaran udara"], a: 2 },
+            { id: 5, q: "Apa syarat utama agar elektron bisa lepas dari logam dalam efek fotoelektrik?", o: ["Intensitas cahaya tinggi", "Waktu penyinaran lama", "Frekuensi di atas ambang", "Suhu logam panas"], a: 2 },
+            { id: 6, q: "Prinsip ketidakpastian menyatakan kita tidak bisa tahu posisi dan momentum secara tepat. Pencetusnya?", o: ["Schrödinger", "Heisenberg", "Niels Bohr", "Dalton"], a: 1 },
+            { id: 7, q: "Dualisme gelombang-partikel menyatakan materi memiliki sifat gelombang. Hipotesis ini diajukan oleh...", o: ["De Broglie", "Faraday", "Planck", "Curie"], a: 0 },
+            { id: 8, q: "Fungsi gelombang dalam mekanika kuantum dilambangkan dengan huruf Yunani...", o: ["Alpha", "Beta", "Psi (ψ)", "Omega"], a: 2 },
+            { id: 9, q: "Kucing yang berada dalam dua keadaan sekaligus (hidup/mati) adalah eksperimen pikiran milik...", o: ["Einstein", "Schrödinger", "Bohr", "Tesla"], a: 1 },
+            { id: 10, q: "Model atom yang menyatakan elektron berada pada lintasan stasioner tertentu adalah...", o: ["Rutherford", "Thomson", "Bohr", "Demokritus"], a: 2 }
+        ];
+
+        let currentQuestions = [];
+        let stage = 0;
+        let isRunning = false;
+        let startTime, timerInterval, markerInterval;
+        let totalDistance = 0;
+        let isPenalized = false;
+        let lastWrongAnswer = null;
+
+        const ground = document.getElementById('ground');
+        const camera = document.getElementById('camera');
+        const hands = document.getElementById('hands');
+        const quizPanel = document.getElementById('quizPanel');
+        const dimensionBg = document.getElementById('dimensionBg');
+        const portal = document.getElementById('portal');
+        const warning = document.getElementById('portalWarning');
+        const entityContainer = document.getElementById('entityContainer');
+        const penaltyOverlay = document.getElementById('penaltyOverlay');
+        const penaltyTimer = document.getElementById('penaltyTimer');
+        const restartBtn = document.getElementById('restartBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const aiExplanation = document.getElementById('aiExplanation');
+        const askAiBtn = document.getElementById('askAiBtn');
+
+        async function callGemini(prompt, systemPrompt = "Kamu adalah asisten edukasi fisika kuantum.") {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "Menganalisis...";
+            } catch (e) { return "Koneksi terganggu."; }
+        }
+
+        const stageDotsContainer = document.getElementById('stageDots');
+        for(let i=0; i<10; i++) {
+            const dot = document.createElement('div');
+            dot.className = "w-6 h-3 bg-slate-800 rounded-full transition-all duration-300";
+            dot.id = `dot-${i}`;
+            stageDotsContainer.appendChild(dot);
+        }
+
+        document.getElementById('startBtn').onclick = () => {
+            const nameInput = document.getElementById('playerName');
+            if(!nameInput.value.trim()) {
+                nameInput.classList.add('border-red-600');
+                return;
+            }
+            document.getElementById('menu').classList.add('hidden');
+            initGame();
+        };
+
+        restartBtn.onclick = () => {
+            document.getElementById('resultCard').classList.add('hidden');
+            initGame();
+        };
+
+        submitBtn.onclick = () => {
+            const name = document.getElementById('playerName').value;
+            const time = document.getElementById('finalTime').innerText;
+            
+            // Link ke Google Form dengan Pre-filled data
+            // entry.1017631327 = Nama
+            // entry.135017257 = Waktu
+            const baseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfSUaJYZC8PFIc-Yc4Yw4hMM-dyvzwOI58nxo-CUlUvmW5VVg/viewform";
+            const params = `?usp=pp_url&entry.1017631327=${encodeURIComponent(name)}&entry.135017257=${encodeURIComponent(time)}`;
+            
+            window.open(baseUrl + params, '_blank');
+        };
+
+        askAiBtn.onclick = async () => {
+            askAiBtn.disabled = true;
+            askAiBtn.innerText = "✨ Menghubungi Dimensi AI...";
+            const explanation = await callGemini(`Jelaskan secara singkat kenapa jawaban untuk soal ini salah: "${lastWrongAnswer.q}". Jawaban yang benar adalah "${lastWrongAnswer.o[lastWrongAnswer.a]}".`, "Asisten Fisika");
+            aiExplanation.innerText = explanation;
+            askAiBtn.innerText = "✨ Penjelasan Diterima";
+        };
+
+        function initGame() {
+            currentQuestions = [...BANK_SOAL].sort(() => Math.random() - 0.5).slice(0, 10);
+            stage = 0;
+            totalDistance = 0;
+            isPenalized = false;
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('stopwatch').innerText = '00:00.00';
+            
+            for(let i=0; i<10; i++) {
+                document.getElementById(`dot-${i}`).className = "w-6 h-3 bg-slate-800 rounded-full";
+            }
+
+            startTime = Date.now();
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 10);
+            runLoop();
+        }
+
+        function updateTimer() {
+            const diff = Date.now() - startTime;
+            const m = Math.floor(diff/60000).toString().padStart(2, '0');
+            const s = Math.floor((diff%60000)/1000).toString().padStart(2, '0');
+            const ms = Math.floor((diff%1000)/10).toString().padStart(2, '0');
+            document.getElementById('stopwatch').innerText = `${m}:${s}.${ms}`;
+        }
+
+        function runLoop() {
+            isRunning = true;
+            ground.classList.add('ground-moving');
+            camera.classList.add('bobbing');
+            hands.classList.add('running');
+            
+            clearInterval(markerInterval);
+            markerInterval = setInterval(() => {
+                if(!isRunning) return;
+                totalDistance += 10;
+                spawnMarker(`${totalDistance}M`);
+                if (totalDistance % 50 === 40) warning.classList.remove('hidden');
+                if (totalDistance % 50 === 0) {
+                    isRunning = false;
+                    setTimeout(triggerPortal, 600);
+                }
+            }, 800); 
+        }
+
+        function spawnMarker(text) {
+            const m = document.createElement('div');
+            m.className = 'absolute left-1/2 top-1/2 -translate-x-1/2 text-white font-black text-6xl opacity-0';
+            m.style.zIndex = "20";
+            m.innerText = text;
+            entityContainer.appendChild(m);
+            
+            const anim = m.animate([
+                { transform: 'translate(-50%, -50%) scale(0.1)', opacity: 0 },
+                { opacity: 1, offset: 0.2 },
+                { transform: 'translate(-50%, 400px) scale(6)', opacity: 0 }
+            ], { duration: 1500, easing: 'linear' });
+
+            anim.onfinish = () => m.remove();
+        }
+
+        function triggerPortal() {
+            warning.classList.add('hidden');
+            ground.classList.remove('ground-moving');
+            camera.classList.remove('bobbing');
+            hands.classList.remove('running');
+            portal.classList.add('portal-active');
+            setTimeout(() => {
+                dimensionBg.classList.remove('hidden');
+                portal.classList.remove('portal-active');
+                showQuestion();
+            }, 800);
+        }
+
+        function showQuestion() {
+            quizPanel.classList.remove('hidden');
+            const q = currentQuestions[stage];
+            document.getElementById('qNumber').innerText = `DIMENSION PHASE ${stage + 1}`;
+            document.getElementById('qText').innerText = q.q;
+            const opts = document.getElementById('options');
+            opts.innerHTML = '';
+            q.o.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = "p-4 md:p-5 bg-slate-900 border-2 border-slate-800 rounded-3xl text-left hover:bg-red-600 hover:border-white transition-all font-bold text-white text-sm md:text-base";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(i);
+                opts.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(idx) {
+            if(isPenalized) return;
+            if(idx === currentQuestions[stage].a) {
+                flash('rgba(34, 211, 238, 0.4)');
+                quizPanel.classList.add('hidden');
+                dimensionBg.classList.add('hidden');
+                document.getElementById(`dot-${stage}`).className = "w-8 h-3 bg-red-600 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.8)]";
+                stage++;
+                document.getElementById('progressBar').style.width = `${(stage/10)*100}%`;
+                if(stage < 10) runLoop();
+                else finishGame();
+            } else {
+                lastWrongAnswer = currentQuestions[stage];
+                startPenalty();
+            }
+        }
+
+        function startPenalty() {
+            isPenalized = true;
+            askAiBtn.disabled = false;
+            askAiBtn.innerText = "✨ Tanya Gemini Kenapa Salah?";
+            aiExplanation.innerText = "Tunggu sinkronisasi...";
+            flash('rgba(239, 68, 68, 0.6)');
+            quizPanel.classList.add('hidden');
+            penaltyOverlay.classList.remove('hidden');
+            let timeLeft = 30;
+            penaltyTimer.innerText = timeLeft;
+            const pInterval = setInterval(() => {
+                timeLeft--;
+                penaltyTimer.innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(pInterval);
+                    isPenalized = false;
+                    penaltyOverlay.classList.add('hidden');
+                    showQuestion();
+                }
+            }, 1000);
+        }
+
+        function flash(color) {
+            const overlay = document.getElementById('flashOverlay');
+            overlay.style.backgroundColor = color;
+            overlay.style.opacity = '1';
+            setTimeout(() => overlay.style.opacity = '0', 300);
+        }
+
+        async function finishGame() {
+            clearInterval(timerInterval);
+            clearInterval(markerInterval);
+            const finalTimeStr = document.getElementById('stopwatch').innerText;
+            const playerName = document.getElementById('playerName').value;
+            
+            document.getElementById('resultCard').classList.remove('hidden');
+            document.getElementById('winnerName').innerText = playerName;
+            document.getElementById('finalTime').innerText = finalTimeStr;
+
+            const aiFeedback = document.getElementById('aiFeedback');
+            const feedback = await callGemini(`Komentari lari kuantum ${playerName} dalam waktu ${finalTimeStr}. Singkat saja.`, "Komentator Balap");
+            aiFeedback.innerText = "✨ " + feedback;
+        }
+    </script>
+</body>
+</html>
