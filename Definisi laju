@@ -1,0 +1,582 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Pause, RotateCcw, Zap, Users, Activity, ChevronRight, FlaskConical, Mountain, Thermometer, User, Info, Beaker, Settings2, Globe } from 'lucide-react';
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('total');
+
+  // --- Common States ---
+  const [eaValue, setEaValue] = useState(60);
+  const [tempValue, setTempValue] = useState(300);
+  const [orderType, setOrderType] = useState(1);
+  const [concentrations, setConcentrations] = useState({ A: 1.0, B: 1.0, C: 1.0, D: 1.0 });
+
+  // --- Modul 1: Definisi (A -> B) ---
+  const [defTime, setDefTime] = useState(0);
+  const [isDefRunning, setIsDefRunning] = useState(false);
+  const initialParticles = 50;
+  const currentA = Math.max(0, initialParticles - Math.floor(defTime / 2));
+  const currentB = initialParticles - currentA;
+  const rateV = defTime > 0 ? (currentB / defTime).toFixed(2) : "0.00";
+
+  // --- Modul 2: Energi Aktivasi ---
+  const [isHiking, setIsHiking] = useState(false);
+  const [hikeProgress, setHikeProgress] = useState(0);
+  const [hikeResult, setHikeResult] = useState(null);
+
+  // --- Modul 4: Molekularitas ---
+  const [molType, setMolType] = useState('bi');
+  const [isColliding, setIsColliding] = useState(false);
+
+  // --- Modul 5: Simulasi Total ---
+  const [isSimRunning, setIsSimRunning] = useState(false);
+  const [simParticles, setSimParticles] = useState([]);
+  const [collisionCount, setCollisionCount] = useState(0);
+
+  // Effect Modul 1
+  useEffect(() => {
+    let interval;
+    if (isDefRunning && defTime < 100) {
+      interval = setInterval(() => setDefTime(prev => prev + 1), 100);
+    } else {
+      setIsDefRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isDefRunning, defTime]);
+
+  // Effect Modul 2
+  useEffect(() => {
+    let interval;
+    if (isHiking) {
+      const successProb = (tempValue / 1000) * (150 / eaValue);
+      const isActuallySuccess = Math.random() < successProb;
+
+      interval = setInterval(() => {
+        setHikeProgress(prev => {
+          if (!isActuallySuccess && prev >= 45) {
+            setHikeResult('fail');
+            if (prev <= 0) {
+                clearInterval(interval);
+                setIsHiking(false);
+                return 0;
+            }
+            return prev - 2;
+          }
+
+          if (prev >= 100) {
+            clearInterval(interval);
+            setIsHiking(false);
+            setHikeResult('success');
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 30);
+    }
+    return () => clearInterval(interval);
+  }, [isHiking, tempValue, eaValue]);
+
+  // Effect Simulasi Total (Vektor Motion & Collision Logic)
+  useEffect(() => {
+    if (!isSimRunning) return;
+    
+    const interval = setInterval(() => {
+      setSimParticles(prev => {
+        // 1. Hitung Posisi Baru berdasarkan Kecepatan & Suhu
+        const nextParticles = prev.map(p => {
+          const speedFactor = tempValue / 300;
+          let nx = p.x + p.vx * speedFactor;
+          let ny = p.y + p.vy * speedFactor;
+          let nvx = p.vx;
+          let nvy = p.vy;
+
+          // Pantulan Dinding (Bounce)
+          if (nx <= 2 || nx >= 98) nvx = -nvx;
+          if (ny <= 2 || ny >= 98) nvy = -nvy;
+
+          return { ...p, x: nx, y: ny, vx: nvx, vy: nvy, isSparking: false };
+        });
+
+        // 2. Deteksi Tabrakan Antar Partikel (Elastic-like collision)
+        for (let i = 0; i < nextParticles.length; i++) {
+          for (let j = i + 1; j < nextParticles.length; j++) {
+            const p1 = nextParticles[i];
+            const p2 = nextParticles[j];
+            const dx = p1.x - p2.x;
+            const dy = p1.y - p2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 5) { // Radius tabrakan
+              // Efek visual
+              nextParticles[i].isSparking = true;
+              nextParticles[j].isSparking = true;
+              
+              // Tukar Vektor (Simple momentum exchange)
+              const tx = nextParticles[i].vx;
+              const ty = nextParticles[i].vy;
+              nextParticles[i].vx = nextParticles[j].vx;
+              nextParticles[i].vy = nextParticles[j].vy;
+              nextParticles[j].vx = tx;
+              nextParticles[j].vy = ty;
+
+              setCollisionCount(c => c + 1);
+            }
+          }
+        }
+        return nextParticles;
+      });
+    }, 30); // Frame rate lebih tinggi agar mulus
+    return () => clearInterval(interval);
+  }, [isSimRunning, tempValue]);
+
+  const startHiking = () => {
+    setHikeProgress(0);
+    setHikeResult(null);
+    setIsHiking(true);
+  };
+
+  const resetHiking = () => {
+    setHikeProgress(0);
+    setHikeResult(null);
+    setIsHiking(false);
+  };
+
+  const startCollision = () => {
+    setIsColliding(true);
+    setTimeout(() => setIsColliding(false), 2000);
+  };
+
+  const updateConc = (key, val) => {
+    setConcentrations(prev => ({ ...prev, [key]: parseFloat(val) }));
+  };
+
+  const initSim = () => {
+    const newParticles = [];
+    const colors = { A: '#ef4444', B: '#3b82f6', C: '#22c55e', D: '#f59e0b' };
+    
+    ['A', 'B', 'C', 'D'].forEach(type => {
+      const count = Math.floor(concentrations[type] * 5);
+      for (let i = 0; i < count; i++) {
+        newParticles.push({
+          id: Math.random(),
+          type,
+          x: Math.random() * 80 + 10,
+          y: Math.random() * 80 + 10,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          color: colors[type],
+          isSparking: false
+        });
+      }
+    });
+    setSimParticles(newParticles);
+    setCollisionCount(0);
+    setIsSimRunning(true);
+  };
+
+  // UI Components (Renders) - Keep consistent with updated logic
+  const renderDefinisi = () => (
+    <div className="space-y-6">
+      <div className="text-center bg-indigo-50 py-2 rounded-lg border border-indigo-100">
+        <h3 className="text-xl font-bold text-indigo-900">Reaksi: A → B</h3>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-red-50 p-4 rounded-2xl border border-red-100 text-center">
+          <p className="text-[10px] font-bold text-red-500 uppercase">Partikel Reaktan [A]</p>
+          <p className="text-2xl font-black text-red-700">{currentA}</p>
+        </div>
+        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
+          <p className="text-[10px] font-bold text-emerald-500 uppercase">Partikel Produk [B]</p>
+          <p className="text-2xl font-black text-emerald-700">{currentB}</p>
+        </div>
+        <div className="bg-blue-900 p-4 rounded-2xl text-white text-center shadow-lg">
+          <p className="text-[10px] font-bold uppercase opacity-60 text-blue-200 text-xs">Laju (v) = + Δ[B] / Δt</p>
+          <p className="text-2xl font-mono font-bold text-cyan-300">{rateV} <span className="text-xs">p/s</span></p>
+        </div>
+      </div>
+
+      <div className="h-48 bg-slate-50 rounded-2xl p-4 border flex gap-4 overflow-hidden relative shadow-inner">
+        <div className="w-1/2 flex flex-wrap content-start gap-1 border-r pr-2">
+          {[...Array(currentA)].map((_, i) => (
+            <div key={i} className="w-3 h-3 bg-red-500 rounded-full shadow-sm" />
+          ))}
+        </div>
+        <div className="w-1/2 flex flex-wrap content-start gap-1 pl-2">
+          {[...Array(currentB)].map((_, i) => (
+            <div key={i} className="w-3 h-3 bg-emerald-500 rounded-full transition-all duration-300 scale-110 shadow-sm" />
+          ))}
+        </div>
+        {!isDefRunning && defTime === 0 && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+            <button onClick={() => setIsDefRunning(true)} className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-xl flex items-center gap-2">Mulai Reaksi <Play size={18}/></button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-center gap-4">
+          <button onClick={() => setIsDefRunning(!isDefRunning)} className="p-3 bg-slate-800 text-white rounded-xl active:scale-95 transition-transform">
+            {isDefRunning ? <Pause size={20}/> : <Play size={20}/>}
+          </button>
+          <button onClick={() => {setDefTime(0); setIsDefRunning(false);}} className="p-3 bg-slate-200 rounded-xl text-gray-600 active:scale-95 transition-transform">
+            <RotateCcw size={20}/>
+          </button>
+      </div>
+    </div>
+  );
+
+  const renderEa = () => {
+    const getHikerPos = (progress) => {
+      const x = (progress / 100) * 400;
+      const y = 180 - (eaValue * (1 - Math.pow((x - 200) / 200, 2)));
+      return { x, y: progress > 0 ? y - 24 : 160 };
+    };
+    const pos = getHikerPos(hikeProgress);
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-orange-50 p-3 rounded-xl border border-orange-200">
+            <label className="text-xs font-bold block text-orange-800 uppercase text-[10px]">Energi Aktivasi (Ea): {eaValue}</label>
+            <input type="range" min="30" max="150" value={eaValue} onChange={(e) => setEaValue(Number(e.target.value))} className="w-full h-1 bg-orange-300 rounded-lg appearance-none mt-2 cursor-pointer" disabled={isHiking} />
+          </div>
+          <div className="bg-red-50 p-3 rounded-xl border border-red-200">
+            <label className="text-xs font-bold block text-red-800 uppercase text-[10px]">Suhu Sistem (T): {tempValue} K</label>
+            <input type="range" min="200" max="1000" value={tempValue} onChange={(e) => setTempValue(Number(e.target.value))} className="w-full h-1 bg-red-300 rounded-lg appearance-none mt-2 cursor-pointer" disabled={isHiking} />
+          </div>
+        </div>
+
+        <div className="h-64 bg-slate-100 rounded-3xl relative overflow-hidden border shadow-inner">
+          <svg viewBox="0 0 400 200" className="w-full h-full">
+            <path d={`M 0 180 Q 200 ${180 - (eaValue * 2)} 400 180`} fill="none" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
+            <rect x="0" y="180" width="400" height="20" fill="#cbd5e1" />
+            <g transform={`translate(${pos.x - 12}, ${pos.y})`} className="transition-transform duration-75">
+              <User size={32} className={`${hikeResult === 'fail' ? 'text-red-500' : 'text-indigo-600'} ${hikeResult === 'fail' && hikeProgress > 0 ? '-scale-x-100' : ''}`} />
+            </g>
+          </svg>
+
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+            {hikeResult === 'success' && <div className="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-lg animate-bounce">REAKSI TERJADI!</div>}
+            {hikeResult === 'fail' && <div className="bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg">Gagal: Energi Kurang</div>}
+            
+            <div className="flex gap-2 mt-4">
+                {!isHiking && (
+                <button onClick={startHiking} className="bg-indigo-600 text-white px-8 py-3 rounded-full font-black shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">
+                    {hikeResult ? 'Coba Lagi' : 'Daki Bukit!'}
+                </button>
+                )}
+                {hikeResult && (
+                <button onClick={resetHiking} className="bg-slate-200 text-slate-600 p-3 rounded-full shadow hover:bg-slate-300 transition-all">
+                    <RotateCcw size={20}/>
+                </button>
+                )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOrde = () => {
+    const k = 0.5;
+    
+    const getRateFormula = () => {
+      if (orderType === 0) return `v = k [A]⁰ [B]⁰ [C]⁰ [D]⁰ = k`;
+      if (orderType === 1) return `v = k [A]¹ [B]⁰ [C]⁰ [D]⁰ = k[A]`;
+      if (orderType === 2) return `v = k [A]¹ [B]¹ [C]⁰ [D]⁰ = k[A][B]`;
+      return "";
+    };
+
+    const calculateRate = () => {
+      if (orderType === 0) return k.toFixed(4);
+      if (orderType === 1) return (k * concentrations.A).toFixed(4);
+      if (orderType === 2) return (k * concentrations.A * concentrations.B).toFixed(4);
+      return "0.0000";
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center bg-indigo-900 text-white py-4 rounded-2xl shadow-lg">
+           <h3 className="text-sm font-bold opacity-70 uppercase tracking-widest mb-1">Reaksi Kompleks</h3>
+           <p className="text-xl font-black">A + B + C + D → E</p>
+           <p className="text-xs font-mono text-indigo-300 mt-2 bg-black/20 py-1 px-4 rounded-full inline-block border border-white/10">
+             {getRateFormula()}
+           </p>
+        </div>
+
+        <div className="flex justify-center gap-3">
+          {[0, 1, 2].map(n => (
+            <button 
+              key={n} 
+              onClick={() => setOrderType(n)} 
+              className={`flex-1 px-4 py-3 rounded-xl font-bold text-xs transition-all ${orderType === n ? 'bg-indigo-600 text-white scale-105 shadow-md border-b-4 border-indigo-800' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}
+            >
+              Mode Orde Total {n}
+              <div className="text-[9px] font-normal opacity-70 mt-1 uppercase">
+                {n === 0 && "Tanpa Variabel"}
+                {n === 1 && "Variabel A"}
+                {n === 2 && "Variabel A & B"}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {Object.keys(concentrations).map((key) => {
+            const isEffective = (orderType === 1 && key === 'A') || 
+                               (orderType === 2 && (key === 'A' || key === 'B'));
+
+            return (
+              <div key={key} className={`p-4 rounded-2xl border transition-all relative overflow-hidden ${isEffective ? 'bg-white shadow-sm border-emerald-400 ring-1 ring-emerald-100' : 'bg-slate-50 border-slate-200'}`}>
+                {isEffective && (
+                  <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] px-2 py-0.5 font-bold rounded-bl-lg uppercase">
+                    Aktif
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center mb-2">
+                  <span className={`font-black ${isEffective ? 'text-emerald-900' : 'text-slate-400'}`}>[{key}]</span>
+                  <span className={`font-mono px-2 py-0.5 rounded-lg text-sm ${isEffective ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                    {concentrations[key].toFixed(1)} M
+                  </span>
+                </div>
+                
+                <input 
+                  type="range" min="0.0" max="5.0" step="0.5" 
+                  value={concentrations[key]} 
+                  onChange={(e) => updateConc(key, e.target.value)} 
+                  className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer ${isEffective ? 'accent-emerald-500 bg-emerald-100' : 'accent-slate-400 bg-slate-200'}`}
+                />
+                
+                <p className={`text-[9px] mt-2 font-medium flex items-center gap-1 ${isEffective ? 'text-emerald-600' : 'text-slate-400 italic'}`}>
+                  {isEffective ? (
+                    <><Activity size={10}/> Mengubah Laju</>
+                  ) : (
+                    <><Info size={10}/> Tidak Berpengaruh</>
+                  )}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="bg-slate-900 p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl border-b-8 border-indigo-600">
+           <div>
+              <p className="text-[10px] font-bold uppercase text-indigo-400 tracking-wider mb-1">Hasil Perhitungan Laju (v)</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-4xl font-black font-mono tracking-tighter text-white">{calculateRate()}</p>
+                <span className="text-xs text-slate-500">M/s</span>
+              </div>
+           </div>
+           <div className={`p-4 rounded-3xl transition-colors duration-500 ${orderType === 0 ? 'bg-slate-800' : 'bg-indigo-600 shadow-lg shadow-indigo-500/20'}`}>
+              <Zap size={32} className={orderType === 0 ? "text-slate-600" : "animate-pulse text-yellow-300"} />
+           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMolekularitas = () => (
+    <div className="space-y-6">
+      <div className="flex gap-2">
+        {['uni', 'bi', 'ter'].map(t => (
+          <button key={t} onClick={() => setMolType(t)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase ${molType === t ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="h-64 bg-slate-900 rounded-[2rem] relative overflow-hidden flex items-center justify-center shadow-inner border-4 border-slate-800">
+        <div className={`flex items-center justify-center w-full h-full relative`}>
+          {molType === 'uni' && (
+            <div className={`w-14 h-14 bg-yellow-400 rounded-full flex items-center justify-center font-black transition-all duration-1000 ${isColliding ? 'scale-[3] opacity-0' : 'scale-100'}`}>A</div>
+          )}
+          {molType === 'bi' && (
+            <>
+              <div className={`absolute w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white font-bold transition-all duration-700 ${isColliding ? 'translate-x-0' : '-translate-x-32'}`}>A</div>
+              <div className={`absolute w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold transition-all duration-700 ${isColliding ? 'translate-x-0' : 'translate-x-32'}`}>B</div>
+              {isColliding && <div className="absolute w-20 h-20 bg-white/20 rounded-full animate-ping" />}
+            </>
+          )}
+          {molType === 'ter' && (
+            <>
+              <div className={`absolute w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold transition-all duration-1000 ${isColliding ? 'translate-x-0 translate-y-0' : '-translate-x-32 -translate-y-20'}`}>A</div>
+              <div className={`absolute w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold transition-all duration-1000 ${isColliding ? 'translate-x-0 translate-y-0' : 'translate-x-32 -translate-y-20'}`}>B</div>
+              <div className={`absolute w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold transition-all duration-1000 ${isColliding ? 'translate-x-0 translate-y-0' : 'translate-y-32'}`}>C</div>
+            </>
+          )}
+        </div>
+
+        <div className="absolute inset-0 flex items-center justify-center">
+          {!isColliding && (
+             <button onClick={startCollision} className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 px-8 py-3 rounded-full font-bold uppercase tracking-widest text-xs">
+               Simulasi Tabrakan
+             </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSimulasiTotal = () => {
+    // k berdasarkan Arrhenius
+    const k_sim = (Math.exp(-eaValue / (tempValue/10)) * 50).toFixed(4);
+    
+    const calculateRateSim = () => {
+        const valK = parseFloat(k_sim);
+        if (orderType === 0) return valK.toFixed(4);
+        if (orderType === 1) return (valK * concentrations.A).toFixed(4);
+        if (orderType === 2) return (valK * concentrations.A * concentrations.B).toFixed(4);
+        return "0.0000";
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900 rounded-2xl p-4 text-white space-y-4 shadow-lg border-b-4 border-indigo-600">
+            <h4 className="text-[10px] font-black uppercase text-indigo-400 flex items-center gap-1"><Settings2 size={12}/> Parameter Sistem</h4>
+            
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold flex justify-between">SUHU (T) <span>{tempValue} K</span></label>
+                <input type="range" min="100" max="1000" step="50" value={tempValue} onChange={(e) => setTempValue(Number(e.target.value))} className="w-full accent-red-500 h-1" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold flex justify-between">ENERGI AKTIVASI (Ea) <span>{eaValue}</span></label>
+                <input type="range" min="10" max="100" step="10" value={eaValue} onChange={(e) => setEaValue(Number(e.target.value))} className="w-full accent-orange-500 h-1" />
+              </div>
+            </div>
+
+            <hr className="opacity-10" />
+
+            <div className="grid grid-cols-2 gap-2">
+              {['A', 'B', 'C', 'D'].map(key => (
+                <div key={key} className="space-y-1">
+                  <label className="text-[9px] font-bold">[{key}]: {concentrations[key]}</label>
+                  <input type="range" min="0" max="5" step="1" value={concentrations[key]} onChange={(e) => updateConc(key, e.target.value)} className="w-full accent-emerald-500 h-1" />
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex gap-1">
+               {[0,1,2].map(o => (
+                 <button key={o} onClick={() => setOrderType(o)} className={`flex-1 py-1 text-[8px] font-black rounded border ${orderType === o ? 'bg-indigo-600 border-indigo-400' : 'bg-transparent border-slate-700 text-slate-500'}`}>ORDE {o}</button>
+               ))}
+            </div>
+            
+            <button onClick={initSim} className="w-full py-3 bg-indigo-500 hover:bg-indigo-400 rounded-xl font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2">
+              <RotateCcw size={14}/> Reset Partikel
+            </button>
+          </div>
+
+          <div className="md:col-span-2 space-y-4">
+            <div className="h-72 bg-slate-100 rounded-3xl border relative overflow-hidden shadow-inner cursor-crosshair">
+               {isSimRunning ? (
+                  <div className="w-full h-full relative">
+                    {simParticles.map(p => (
+                      <div key={p.id} 
+                           className={`absolute w-4 h-4 rounded-full shadow-sm transition-transform duration-75 flex items-center justify-center text-[8px] font-bold text-white
+                                      ${p.isSparking ? 'scale-150 z-10' : 'scale-100 z-0'}`} 
+                           style={{ 
+                             left: `${p.x}%`, 
+                             top: `${p.y}%`, 
+                             backgroundColor: p.isSparking ? '#ffffff' : p.color,
+                             boxShadow: p.isSparking ? '0 0 15px #fff' : 'none',
+                             transform: 'translate(-50%, -50%)'
+                           }}>
+                        {p.isSparking ? '!' : p.type}
+                      </div>
+                    ))}
+                    <div className="absolute top-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-[10px] font-mono backdrop-blur-sm border border-white/10">
+                      Total Tabrakan: {collisionCount}
+                    </div>
+                  </div>
+               ) : (
+                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+                    <div className="p-6 bg-white rounded-full shadow-xl border border-slate-200">
+                       <Globe size={48} className="text-indigo-400 animate-pulse" />
+                    </div>
+                    <div className="text-center">
+                       <h3 className="text-slate-600 font-bold">Simulator Lab Virtual</h3>
+                       <p className="text-xs">Klik tombol di bawah untuk menyebarkan partikel</p>
+                    </div>
+                    <button onClick={initSim} className="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">Mulai Simulasi</button>
+                 </div>
+               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter italic">Konstanta Laju (k)</p>
+                  <p className="text-2xl font-black text-slate-900 font-mono">{k_sim}</p>
+                  <p className="text-[8px] text-indigo-500 font-bold uppercase mt-1">k = A · e^(-Ea/RT)</p>
+               </div>
+               <div className="bg-indigo-600 p-4 rounded-2xl shadow-lg border-b-4 border-indigo-800 flex flex-col justify-center text-white">
+                  <p className="text-[9px] font-black opacity-60 uppercase tracking-tighter italic">Laju Reaksi (v)</p>
+                  <p className="text-2xl font-black font-mono">{calculateRateSim()}</p>
+                  <p className="text-[8px] opacity-80 uppercase mt-1">v = k [A]^n [B]^m...</p>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex gap-3 items-start">
+           <Zap size={18} className="text-amber-500 mt-1 shrink-0" />
+           <p className="text-[11px] text-amber-900 leading-tight">
+             <span className="font-bold">Analisis Molekular (Collision Theory):</span> <br/>
+             1. Jika konsentrasi diset ke <b>0</b>, partikel hilang (tidak ada molekul = tidak ada reaksi). <br/>
+             2. Saat <b>Suhu (T)</b> naik, partikel bergerak lebih cepat (energi kinetik bertambah), menyebabkan frekuensi tumbukan ("!") meningkat tajam. Inilah alasan fisik mengapa laju reaksi naik saat suhu tinggi.
+           </p>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 font-sans">
+      <div className="max-w-4xl mx-auto flex flex-col gap-6">
+        <div className="flex overflow-x-auto gap-2 p-2 bg-white rounded-2xl shadow-sm border no-scrollbar">
+          {[
+            { id: 'definisi', icon: <FlaskConical size={16}/>, label: 'Laju (A→B)' },
+            { id: 'ea', icon: <Mountain size={16}/>, label: 'E. Aktivasi' },
+            { id: 'orde', icon: <Activity size={16}/>, label: 'Orde A+B+C+D' },
+            { id: 'mol', icon: <Users size={16}/>, label: 'Molekularitas' },
+            { id: 'total', icon: <Zap size={16}/>, label: 'Simulasi Total' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden min-h-[580px] flex flex-col">
+          <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-black text-indigo-900 uppercase tracking-tight">
+                {activeTab === 'definisi' ? 'Definisi Laju' : 
+                 activeTab === 'ea' ? 'Analogi Hambatan Energi' : 
+                 activeTab === 'orde' ? 'Bukti Eksperimen Orde' : 
+                 activeTab === 'total' ? 'Simulasi Dinamis Partikel' : 'Tumbukan Molekularitas'}
+              </h2>
+              <p className="text-slate-500 text-sm italic">
+                {activeTab === 'total' ? 'Observasi gerak partikel & frekuensi tumbukan' : 'Eksperimen variabel kinetika kimia'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="p-8 flex-grow">
+            {activeTab === 'definisi' && renderDefinisi()}
+            {activeTab === 'ea' && renderEa()}
+            {activeTab === 'orde' && renderOrde()}
+            {activeTab === 'mol' && renderMolekularitas()}
+            {activeTab === 'total' && renderSimulasiTotal()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
